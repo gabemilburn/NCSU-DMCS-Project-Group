@@ -1,3 +1,5 @@
+USE csc540_project;
+
 DROP TRIGGER IF EXISTS csc540_project.before_insert_ingredient_batch;
 DROP TRIGGER IF EXISTS csc540_project.before_insert_product_batch;
 DROP TRIGGER IF EXISTS csc540_project.prevent_expired_consumption;
@@ -23,10 +25,10 @@ BEGIN
     -- BatchID is the max of the suppliers current BatchIDs + 1 (in LotID)
     SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(LotID, '-B', -1) AS UNSIGNED)), 0) INTO v_NewBatchID
     FROM IngredientBatch
-    WHERE LotID LIKE CONCAT('%-', v_SupplierID, '-%');
+    WHERE LotID LIKE CONCAT(v_IngredientID, '-', v_SupplierID, '-%');
     SET v_NewBatchID = v_NewBatchID + 1;
 
-    SET NEW.LotID = CONCAT(v_IngredientID, '-', v_SupplierID, '-B', v_NewBatchID);
+    SET NEW.LotID = CONCAT(v_IngredientID, '-', v_SupplierID, '-B', LPAD(v_NewBatchID, 4, '0'));
 END$$
 
 
@@ -51,10 +53,10 @@ BEGIN
     -- BatchID is the max of the manufacturers current BatchIDs + 1 (in LotID)
     SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(LotID, '-B', -1) AS UNSIGNED)), 0) INTO v_NewBatchID
     FROM ProductBatch
-    WHERE LotID LIKE CONCAT('%-', v_ManufacturerID, '-%');
+    WHERE LotID LIKE CONCAT(v_ProductID, '-MFG', LPAD(v_ManufacturerID, 3, '0'), '-%');
     SET v_NewBatchID = v_NewBatchID + 1;
 
-    SET NEW.LotID = CONCAT(v_IngredientID, '-', v_ManufacturerID, '-B', v_NewBatchID);
+    SET NEW.LotID = CONCAT(v_ProductID, '-MFG', LPAD(v_ManufacturerID, 3, '0'), '-B', LPAD(v_NewBatchID, 4, '0'));
 END$$
 
 

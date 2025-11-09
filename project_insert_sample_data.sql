@@ -6,11 +6,13 @@
 -- Also the way they have it makes no sense. The supplier table doesn't get a user ID? Two suppliers are listed
 -- and only one gets a userID? And theres no way to tell what supplierID it corresponds to?
 
+USE csc540_project;
+
 INSERT INTO User (UserID, UserName, FirstName, LastName, UserRole)
-VALUES (1, 'Manager A', 'John', 'Smith', 'MANUFACTURER'),
-	   (2, 'Manager B', 'Alice', 'Lee', 'MANUFACTURER'),
+VALUES (1, 'Manufacturer A', 'John', 'Smith', 'MANUFACTURER'),
+	   (2, 'Manufacturer B', 'Alice', 'Lee', 'MANUFACTURER'),
        (3, 'Supplier A', 'Jane', 'Doe', 'SUPPLIER'),
-       (4, 'Supplier B', 'Supp', 'Lier', 'SUPPLIER'),
+       (4, 'Supplier B', 'James', 'Miller', 'SUPPLIER'),
        (5, 'Viewer A', 'Bob', 'Johnson', 'VIEWER');
 
 INSERT INTO Supplier (UserID, SupplierID)
@@ -34,12 +36,12 @@ VALUES (101, 'Salt', FALSE),
 -- They don't have formulations for atomic ingredients, but our implementation uses this, so
 -- I'm adding implicit ones as well
 INSERT INTO Formulation (FormulationID, IngredientID, SupplierID, VersionNumber, EffectiveStartDate, EffectiveEndDate, UnitPrice, PackSize)
-VALUES (1, 201, 20, 1, '2025-01-01', '2025-06-30', 20.0, 8.0),
-	   (2, 101, 20, 1, '2025-01-01', '2025-06-30', 0.1, 1.0),
-       (3, 101, 21, 1, '2025-01-01', '2025-06-30', 0.08, 1.0),
-       (4, 102, 20, 1, '2025-01-01', '2025-06-30', 0.3, 1.0),
-       (5, 106, 20, 1, '2025-01-01', '2025-06-30', 0.5, 1.0),
-       (6, 108, 20, 1, '2025-01-01', '2025-06-30', 0.25, 1.0);
+VALUES (1, 201, 20, 1, '2025-01-01', '2025-06-30', 20.0, 8),
+	   (2, 101, 20, 1, '2025-01-01', '2025-06-30', 0.1, 1),
+       (3, 101, 21, 1, '2025-01-01', '2025-06-30', 0.08, 1),
+       (4, 102, 20, 1, '2025-01-01', '2025-06-30', 0.3, 1),
+       (5, 106, 20, 1, '2025-01-01', '2025-06-30', 0.5, 1),
+       (6, 108, 20, 1, '2025-01-01', '2025-06-30', 0.25, 1);
 
 -- It **seems** like CostPerUnit is just the formulation price_per_pack / pack_size, so no need to store I think
 INSERT INTO IngredientBatch (LotID, FormulationID, Quantity, ExpirationDate, ManufacturerID)

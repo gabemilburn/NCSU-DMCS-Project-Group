@@ -1,6 +1,5 @@
 """
 CSC540 Database Project - Manufacturer Menu Module
-Graduate Version - UPDATED to use stored procedures
 Food Manufacturing Inventory Management System
 """
 

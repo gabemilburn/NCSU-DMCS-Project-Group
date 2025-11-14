@@ -1,6 +1,5 @@
 """
 CSC540 Database Project - Supplier Menu Module
-Graduate Version - UPDATED with Batch Viewing and Versioned Formulations
 """
 
 import mysql.connector

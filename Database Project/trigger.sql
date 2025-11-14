@@ -26,16 +26,14 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
     END IF;
 
-    SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(LotID, '-B', -1) AS UNSIGNED)), 0)
-    INTO v_NewBatchID
+    -- BatchID is the max of the suppliers current BatchIDs + 1 (in LotID)
+    SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(LotID, '-B', -1) AS UNSIGNED)), 0) INTO v_NewBatchID
     FROM IngredientBatch
-    WHERE LotID LIKE CONCAT(v_IngredientID, '-', v_SupplierID, '-B%');
-
+    WHERE LotID LIKE CONCAT(v_IngredientID, '-', v_SupplierID, '-%');
     SET v_NewBatchID = v_NewBatchID + 1;
 
     SET NEW.LotID = CONCAT(v_IngredientID, '-', v_SupplierID, '-B', LPAD(v_NewBatchID, 4, '0'));
 END$$
-
 
 CREATE TRIGGER before_insert_product_batch
 BEFORE INSERT ON ProductBatch
@@ -43,9 +41,11 @@ FOR EACH ROW
 BEGIN
     DECLARE v_ProductID INT;
     DECLARE v_ManufacturerID INT;
+    DECLARE v_UserID VARCHAR(7); 
     DECLARE v_NewBatchID INT;
     DECLARE v_msg VARCHAR(255);
 
+    -- Get ProductID from Recipe
     SELECT ProductID
     INTO v_ProductID
     FROM Recipe
@@ -68,14 +68,24 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
     END IF;
 
+    SELECT UserID
+    INTO v_UserID
+    FROM Manufacturer
+    WHERE ManufacturerID = v_ManufacturerID
+    LIMIT 1;
+
+    IF v_UserID IS NULL THEN
+        SET v_msg = CONCAT('Manufacturer has no UserID: manufacturer ', v_ManufacturerID);
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_msg;
+    END IF;
+
     SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(LotID, '-B', -1) AS UNSIGNED)), 0)
     INTO v_NewBatchID
     FROM ProductBatch
-    WHERE LotID LIKE CONCAT(v_ProductID, '-', v_ManufacturerID, '-B%');
-
+    WHERE LotID LIKE CONCAT(v_ProductID, '-', v_UserID, '-B%');  
+    
     SET v_NewBatchID = v_NewBatchID + 1;
-
-    SET NEW.LotID = CONCAT(v_ProductID, '-', v_ManufacturerID, '-B', LPAD(v_NewBatchID, 4, '0'));
+    SET NEW.LotID = CONCAT(v_ProductID, '-', v_UserID, '-B', LPAD(v_NewBatchID, 4, '0'));
 END$$
 
 CREATE TRIGGER prevent_expired_consumption

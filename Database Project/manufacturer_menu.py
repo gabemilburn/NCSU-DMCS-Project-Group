@@ -1,7 +1,5 @@
 """
 CSC540 Database Project - Manufacturer Menu Module
-Graduate Version - UPDATED to use stored procedures
-Food Manufacturing Inventory Management System
 """
 
 import mysql.connector
@@ -14,14 +12,6 @@ class ManufacturerMenu:
         self.user_id = user_id
         self.manufacturer_id = manufacturer_id
 
-    # Utility input helpers
-    def validate_date(self, year, month, day):
-        try:
-            d = date(int(year), int(month), int(day))
-            return d.strftime("%Y-%m-%d")
-        except ValueError:
-            return None
-
     def validate_positive_number(self, prompt, number_type=float, allow_zero=False):
         while True:
             try:
@@ -33,16 +23,6 @@ class ManufacturerMenu:
                           "Error: Value must be non-negative.")
             except ValueError:
                 print(f"Error: Please enter a valid {number_type.__name__}.")
-
-    def validate_int_choice(self, prompt, valid_values):
-        while True:
-            try:
-                val = int(input(prompt))
-                if val in valid_values:
-                    return val
-                print(f"Error: Please enter one of {sorted(valid_values)}.")
-            except ValueError:
-                print("Error: Please enter a valid integer.")
 
     def ensure_clean_transaction(self):
         try:
@@ -1250,9 +1230,8 @@ class ManufacturerMenu:
         print("\n" + "-"*60)
         print("RECEIVE INGREDIENT BATCHES")
         print("-"*60)
-        print("Claim ingredient batches for ingredients used in your recipes")
+        print("Claim ingredient batches from suppliers")
         
-        # Show available batches from suppliers filtered by recipe needs
         try:
             self.cursor.execute("""
                 SELECT 
@@ -1275,22 +1254,13 @@ class ManufacturerMenu:
                 WHERE ib.ManufacturerID IS NULL
                 AND ib.ExpirationDate >= CURDATE()
                 AND ib.TotalQuantityOz > 0
-                AND EXISTS (
-                    SELECT 1 
-                    FROM RecipeBOM rb
-                    INNER JOIN Recipe r ON rb.RecipeID = r.RecipeID
-                    INNER JOIN Product p ON r.ProductID = p.ProductID
-                    WHERE p.ManufacturerID = %s
-                        AND rb.IngredientID = i.IngredientID
-                )
                 ORDER BY i.IngredientName, ib.ExpirationDate
-            """, (self.manufacturer_id,))
+            """)
             
             available_batches = self.cursor.fetchall()
             
             if not available_batches:
-                print("\nNo ingredient batches available for your recipes at this time.")
-                print("Note: Only showing ingredients used in your current recipes.")
+                print("\nNo ingredient batches available at this time.")
                 return
             
             print(f"\n{'#':<4} {'Lot ID':<20} {'Ingredient':<25} {'Supplier':<20} "
@@ -1309,46 +1279,31 @@ class ManufacturerMenu:
             
             if selection == '0':
                 return
-            else:
-                try:
-                    selected_indices = [int(x.strip()) for x in selection.split(',')]
-                except ValueError:
-                    print("Error: Invalid input format.")
-                    return
             
-            # Validate indices
+            try:
+                selected_indices = [int(x.strip()) for x in selection.split(',')]
+            except ValueError:
+                print("Error: Invalid input format.")
+                return
+
             invalid = [i for i in selected_indices if i < 1 or i > len(available_batches)]
             if invalid:
                 print(f"Error: Invalid batch number(s): {invalid}")
                 return
             
-            # Receive the selected batches
-            received_count = 0
+            lot_ids = [available_batches[idx - 1][0] for idx in selected_indices]
+            
             try:
-                # Ensure any pending transaction is closed
-                try:
-                    self.connection.rollback()
-                except:
-                    pass
-                
-                self.ensure_clean_transaction()
-                self.connection.start_transaction()
-                
-                for idx in selected_indices:
-                    lot_id = available_batches[idx - 1][0]
-                    
-                    # Set ManufacturerID to claim the batch
-                    self.cursor.execute("""
-                        UPDATE IngredientBatch
-                        SET ManufacturerID = %s
-                        WHERE LotID = %s AND ManufacturerID IS NULL
-                    """, (self.manufacturer_id, lot_id))
-                    
-                    if self.cursor.rowcount > 0:
-                        received_count += 1
+                placeholders = ','.join(['%s'] * len(lot_ids))
+                self.cursor.execute(f"""
+                    UPDATE IngredientBatch
+                    SET ManufacturerID = %s
+                    WHERE LotID IN ({placeholders}) AND ManufacturerID IS NULL
+                """, [self.manufacturer_id] + lot_ids)
                 
                 self.connection.commit()
-                print(f"\nSuccessfully received {received_count} ingredient batch(es)!")
+                
+                print(f"\nSuccessfully received {self.cursor.rowcount} ingredient batch(es)!")
                 print("These batches are now in your inventory.")
                 
             except mysql.connector.Error as err:

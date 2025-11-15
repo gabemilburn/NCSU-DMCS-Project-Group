@@ -410,8 +410,7 @@ class SupplierMenu:
             """, (ingredient_id, self.supplier_id, pack_size, unit_price, next_version))
 
             formulation_id = self.cursor.lastrowid
-
-            # Insert materials
+            
             for mat_id, qty in materials.items():
                 self.cursor.execute("""
                     INSERT INTO FormulationIngredientList (FormulationID, MaterialID, Quantity)
@@ -747,10 +746,8 @@ class SupplierMenu:
     def view_ingredient_batches(self):
         print("\n--- My Ingredient Batches ---")
 
-        # Ask whether to include expired batches
         include_input = input("Include expired batches? (Y/N, default N): ").strip().upper()
         if include_input not in ("Y", "N", ""):
-            # Just normalize weird input to default = N
             include_expired = False
         else:
             include_expired = (include_input == "Y")

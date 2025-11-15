@@ -1,5 +1,7 @@
 """
 CSC540 Database Project - Manufacturer Menu Module
+Graduate Version - UPDATED to use stored procedures
+Food Manufacturing Inventory Management System
 """
 
 import mysql.connector
@@ -23,9 +25,9 @@ class ManufacturerMenu:
     def validate_positive_number(self, prompt, number_type=float, allow_zero=False):
         while True:
             try:
-                value = number_type(input(prompt))
-                if value > 0 or (allow_zero and value == 0):
-                    return value
+                pos = number_type(input(prompt))
+                if pos > 0 or (allow_zero and pos == 0):
+                    return pos
                 else:
                     print("Error: Value must be positive." if not allow_zero else
                           "Error: Value must be non-negative.")
@@ -839,10 +841,6 @@ class ManufacturerMenu:
         print(f"Per-Unit Cost: ${total_cost / batch_qty:.4f}")
         print("="*70)
 
-        # Check allocated lots for DNC conflicts
-        print("\nEvaluating health risks in allocated ingredient lots...")
-
-        # Build comma-separated list of lot IDs
         lot_ids_str = ','.join([lot_id for lot_id, _, _ in allocations])
 
         try:
@@ -861,7 +859,7 @@ class ManufacturerMenu:
                         print(f"{v[1]:<30} {v[3]:<30}")
                     print("\nProduction blocked for safety reasons!")
                     print("="*70)
-                    return  # BLOCK production
+                    return 
             
             print("No health risk violations detected - safe to proceed")
             

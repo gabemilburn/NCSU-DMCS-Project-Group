@@ -1,5 +1,6 @@
 """
 CSC540 Database Project - Manufacturer Menu Module
+Graduate Version - UPDATED to use stored procedures
 Food Manufacturing Inventory Management System
 """
 
@@ -875,7 +876,6 @@ class ManufacturerMenu:
             print("Production cancelled.")
             return
 
-        # Continue with batch creation
         try:
             self.ensure_clean_transaction()
             self.connection.start_transaction()
@@ -888,19 +888,23 @@ class ManufacturerMenu:
             """, (recipe_id, batch_qty, prod_date_str, exp_date_str, 
                 total_cost, total_cost / batch_qty))
             
-            # Get the generated lot ID
-            product_lot_id = None
             self.cursor.execute("""
                 SELECT LotID FROM ProductBatch 
                 WHERE RecipeID = %s 
-                ORDER BY ProductionDate DESC 
+                AND ProductionDate = %s
+                AND ExpirationDate = %s
+                AND BatchCost = %s
+                AND BatchQuantity = %s
+                ORDER BY LotID DESC 
                 LIMIT 1
-            """, (recipe_id,))
-            result = self.cursor.fetchone()
-            if result:
-                product_lot_id = result[0]
+            """, (recipe_id, prod_date_str, exp_date_str, total_cost, batch_qty))
             
-            # Insert consumption records
+            result = self.cursor.fetchone()
+            if not result:
+                raise Exception("Failed to retrieve generated LotID")
+            
+            product_lot_id = result[0]
+            
             for lot_id, qty_used, cost in allocations:
                 self.cursor.execute("""
                     INSERT INTO ProductBatchIngredientBatch (ProductLotID, IngredientLotID, QuantityUsed)
@@ -913,6 +917,7 @@ class ManufacturerMenu:
             print(f"Product Lot ID: {product_lot_id}")
             print(f"Batch Cost: ${total_cost:.2f}")
             print(f"Per-Unit Cost: ${total_cost / batch_qty:.4f}")
+
             
         except mysql.connector.Error as err:
             print(f"Database error: {err}")

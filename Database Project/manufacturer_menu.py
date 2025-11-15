@@ -1,7 +1,5 @@
 """
 CSC540 Database Project - Manufacturer Menu Module
-Graduate Version - UPDATED to use stored procedures
-Food Manufacturing Inventory Management System
 """
 
 import mysql.connector
@@ -704,7 +702,7 @@ class ManufacturerMenu:
             remaining_needed = needed_oz
             ingredient_allocations = []
             
-            for lot_id, available_oz, unit_price, pack_size, exp_date in available_batches:
+            for lot_id, available_oz, unit_price, pack_size in available_batches:
                 if remaining_needed <= 0:
                     break
                 
@@ -1197,7 +1195,7 @@ class ManufacturerMenu:
             for result in self.cursor.stored_results():
                 rows = result.fetchall()
                 if rows:
-                    print(f"\n⚠️  {len(rows)} affected product batch(es) found!")
+                    print(f"\n{len(rows)} affected product batch(es) found!")
                     print(f"\n{'Product Lot':<20} {'ProdID':<8} {'Product':<25} "
                           f"{'Prod Date':<12} {'Quantity':<10} {'Ing Lot':<20} {'Ingredient':<25}")
                     print("-"*130)

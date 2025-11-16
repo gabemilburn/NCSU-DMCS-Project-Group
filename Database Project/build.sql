@@ -65,10 +65,7 @@ CREATE TABLE Formulation (
     VersionNumber INT NOT NULL,
     EffectiveStartDate DATE NOT NULL,
     EffectiveEndDate DATE NOT NULL DEFAULT '9999-12-31',
-    CHECK (
-    PackSize > 0 AND 
-    UnitPrice > 0 AND 
-    EffectiveStartDate <= EffectiveEndDate),
+    CHECK (EffectiveStartDate <= EffectiveEndDate),
     UNIQUE(SupplierID, IngredientID, VersionNumber),
     FOREIGN KEY (IngredientID) REFERENCES Ingredient(IngredientID)
         ON DELETE RESTRICT,

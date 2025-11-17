@@ -21,7 +21,7 @@
     2. You can then view the setting info on your local connection. The user, hostname, and password are needed to run this project. If a password has not been set, you can set one by selecting "Store in keychain..." and selecting a password.
     ![Image of settings menu](images/info.png)
 
-2. Ensure the user and hostname connection information in manager.py match where your local connection is stored. This can be viewed in the first function: validate_credentials, is surrounded by a large comment block. If they do not match, these need to be updated to where your local instance is stored.
+2. Ensure the user and hostname connection information in manager.py match where your local connection is stored. This can be viewed in the first function: validate_credentials, and is surrounded by a large comment block. If they do not match, these need to be updated to where your local instance is stored.
 
 # Running the program
 

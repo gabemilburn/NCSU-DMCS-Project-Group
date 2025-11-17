@@ -89,12 +89,12 @@ CREATE PROCEDURE AddProductBatch(
 )
 proc_label: BEGIN
 	-- Helper variables
-    DECLARE v_required_qty DEC(10,2);
-    DECLARE v_available_qty DEC(10,2);
+    DECLARE v_required_qty FLOAT;
+    DECLARE v_available_qty FLOAT;
     DECLARE v_ingredient_id INT;
     DECLARE v_ibatch_id VARCHAR(255);
     DECLARE v_expiration_date DATE;
-    DECLARE v_qty_to_use DECIMAL(10,2);
+    DECLARE v_qty_to_use FLOAT;
     -- Exception helper bool
     DECLARE done INT DEFAULT 0;
     
@@ -213,8 +213,6 @@ proc_label: BEGIN
             OPEN ibatch_list_cursor;
             ibatch_loop: LOOP
 				FETCH ibatch_list_cursor INTO v_ibatch_id, v_qty_to_use;
-                -- In case specified quantity to use is more than needed
-                SET v_qty_to_use = LEAST(v_qty_to_use, v_required_qty);
 				-- Not enough stock for current ingredient
 				IF done THEN
 					SET done = 0;
@@ -263,33 +261,14 @@ proc_label: BEGIN
 					LEAVE proc_label;
 				END IF;
                 
-				-- If the current batch has at least enough quantity (required or to use)
-				IF v_available_qty >= v_qty_to_use THEN
-					-- Add that the product batch uses given ingredient batch
-					INSERT INTO ProductBatchIngredientBatch (ProductLotID, IngredientLotID, QuantityUsed)
-					VALUES (p_product_batch_id, v_ibatch_id, v_qty_to_use);
-					-- Decrease quantity left in used ingredient batch
-					UPDATE IngredientBatch
-						SET Quantity = Quantity - v_qty_to_use
-						WHERE LotID = v_ibatch_id;
-
-					SET v_required_qty = v_required_qty - v_qty_to_use;
-                    -- In the case that selected amount was less than required
-                    IF v_required_qty = 0 THEN
-						CLOSE ibatch_list_cursor;
-						LEAVE ibatch_loop;
-					END IF;
-				-- If the current batch does not have enough
-				ELSE
-					INSERT INTO ProductBatchIngredientBatch (ProductLotID, IngredientLotID, QuantityUsed)
-					VALUES (p_product_batch_id, v_ibatch_id, v_available_qty);
-					-- Set ingredient batch quantity to 0 (use it up completely)
-					UPDATE IngredientBatch
-						SET Quantity = 0
-						WHERE LotID = v_ibatch_id;
-
-					SET v_required_qty = v_required_qty - v_available_qty;
-				END IF;
+				-- Add that the product batch uses given ingredient batch
+				INSERT INTO ProductBatchIngredientBatch (ProductLotID, IngredientLotID, QuantityUsed)
+				VALUES (p_product_batch_id, v_ibatch_id, v_qty_to_use);
+				-- Decrease quantity left in used ingredient batch
+				UPDATE IngredientBatch
+					SET Quantity = Quantity - v_qty_to_use
+					WHERE LotID = v_ibatch_id;
+				LEAVE ibatch_loop;
             END LOOP ibatch_loop;
 		END LOOP rbom_loop;
         CLOSE rbom_cursor;
@@ -327,21 +306,8 @@ proc_label: BEGIN
 					UPDATE IngredientBatch
 						SET Quantity = Quantity - v_required_qty
 						WHERE LotID = v_ibatch_id;
-
-					SET v_qty_to_use = 0;
 					CLOSE ibatch_cursor;
 					LEAVE ibatch_loop;
-				-- If the current batch does not have enough
-				ELSE
-					INSERT INTO ProductBatchIngredientBatch (ProductLotID, IngredientLotID, QuantityUsed)
-					VALUES (p_product_batch_id, v_ibatch_id, v_available_qty);
-					-- Set ingredient batch quantity to 0 (use it up completely)
-					UPDATE IngredientBatch
-						SET Quantity = 0
-						WHERE LotID = v_ibatch_id;
-
-					SET v_required_qty = v_required_qty - v_available_qty;
-				END IF;
 			END LOOP ibatch_loop;
 		END LOOP rbom_loop;
 		CLOSE rbom_cursor;

@@ -714,8 +714,12 @@ class ManufacturerMenu:
     
     def create_product_batch(self):
         print("\n" + "-"*60)
-        print("CREATE PRODUCT BATCH (FEFO)")
+        print("CREATE PRODUCT BATCH")
         print("-"*60)
+
+        print("Select ingredient batches manually?")
+        manual_selection = input("(Y/N): ").strip() == "Y"
+        print(manual_selection)
 
         product_id = self._select_product()
         if product_id is None:
@@ -789,6 +793,89 @@ class ManufacturerMenu:
         if exp_dt <= datetime.strptime(prod_date_str, "%Y-%m-%d").date():
             print("Error: Expiration must be after production date.")
             return
+
+        if not manual_selection:
+            # FEFO
+            results = self.cursor.callproc(
+                'AddProductBatch', [recipe_id,self.manufacturer_id,batch_qty,prod_date_str,exp_date_str,None,'',0,''])
+            if not results[7]:
+                print("\nFailed to create product batch:")
+                print(f"Reason: {results[8]}")
+            else:
+                print(f"\nSuccessfully created product batch {results[6]}")
+            return
+
+        # Manual selection
+        ingredient_allocations = []
+        quantity_allocations = []
+
+        self.cursor.execute("""
+            SELECT rb.IngredientID, i.IngredientName, rb.Quantity
+            FROM RecipeBOM rb
+            INNER JOIN Ingredient i ON rb.IngredientID = i.IngredientID
+            WHERE rb.RecipeID = %s
+        """, (recipe_id,))
+        requirements = self.cursor.fetchall()
+
+        for ing_id, ing_name, qty_per_unit in requirements:
+            needed_oz = float(qty_per_unit) * batch_qty
+
+            self.cursor.execute("""
+                SELECT 
+                    ib.LotID,
+                    ib.TotalQuantityOz,
+                    f.UnitPrice,
+                    f.PackSize
+                FROM IngredientBatch ib
+                INNER JOIN Formulation f ON ib.FormulationID = f.FormulationID
+                WHERE f.IngredientID = %s
+                AND ib.ManufacturerID = %s
+                AND ib.TotalQuantityOz > 0
+                AND ib.ExpirationDate >= CURDATE()
+                ORDER BY ib.ExpirationDate ASC, ib.LotID ASC
+            """, (ing_id, self.manufacturer_id))
+
+            available_batches = self.cursor.fetchall()
+
+            if not available_batches:
+                return (False, None, 0, 
+                    f"No available inventory for {ing_name}")
+
+            print(f"\nSelect ingredient batch for ingredient {ing_name}:")
+            idx = 1
+            for lot_id, available_oz, unit_price, pack_size in available_batches:
+                print(idx,lot_id,available_oz,unit_price,pack_size)
+                idx+=1
+            try:
+                select = int(input("\nIngredient batch to use: "))
+            except:
+                print("\nInvalid selection.")
+                return
+            if select > len(available_batches):
+                print("\nInvalid selection.")
+                return
+            
+            ingredient_allocations.append(available_batches[select-1][0])
+            quantity_allocations.append(needed_oz)
+        
+        import json
+        manual_json = json.dumps([
+            {
+                "ibatch_id":ibatch_id,
+                "ibatch_quantity_used": ibatch_quantity_used
+            }
+            for ibatch_id, ibatch_quantity_used in zip(ingredient_allocations, quantity_allocations)
+        ])
+        
+        results = self.cursor.callproc(
+            'AddProductBatch', [recipe_id,self.manufacturer_id,batch_qty,prod_date_str,exp_date_str,manual_json,'',0,''])
+        if not results[7]:
+            print("\nFailed to create product batch:")
+            print(f"Reason: {results[8]}")
+        else:
+            print(f"\nSuccessfully created product batch {results[6]}")
+        return
+
 
         # FEFO Allocation
         print("\nAllocating ingredients using FEFO (whole batches only)...")

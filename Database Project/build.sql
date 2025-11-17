@@ -761,6 +761,7 @@ BEGIN
     ORDER BY ai1.IngredientName, ai2.IngredientName;
 END$$
 
+DROP PROCEDURE IF EXISTS AddProductBatch$$
 -- Adding a product batch
 -- 	Supports manual ingredient batch assignment or automatic consumption (FEFO)
 CREATE PROCEDURE AddProductBatch(
@@ -784,6 +785,7 @@ proc_label: BEGIN
     DECLARE v_ibatch_id VARCHAR(255);
     DECLARE v_expiration_date DATE;
     DECLARE v_qty_to_use DECIMAL(10,2);
+    DECLARE v_pack_size FLOAT;
     -- Exception helper bool
     DECLARE done INT DEFAULT 0;
     
@@ -797,7 +799,7 @@ proc_label: BEGIN
     DECLARE ibatch_cursor CURSOR FOR
         SELECT ib.LotID, ib.Quantity * f.PackSize AS TotalQuantityOz
         FROM IngredientBatch ib
-        JOIN Formualtion f ON f.FormualtionID = ib.FormualtionID
+        JOIN Formulation f ON f.FormulationID = ib.FormulationID
         -- Ingredient batches of the given ingredientID
         WHERE (SELECT f.IngredientID FROM Formulation f WHERE ib.FormulationID = f.FormulationID) = v_ingredient_id
         -- Manufacturer owns ingredient batch
@@ -815,8 +817,10 @@ proc_label: BEGIN
             FROM JSON_TABLE(p_ingredient_batch_list, '$[*]' COLUMNS(ibatch_id VARCHAR(255) PATH '$.ibatch_id', ibatch_quantity_used DEC(10,2) PATH '$.ibatch_quantity_used')) item
             WHERE (SELECT f.IngredientID FROM Formulation f WHERE (SELECT ib.FormulationID FROM IngredientBatch ib WHERE ib.LotID = item.ibatch_id) = f.FormulationID) = v_ingredient_id;
 	
+    
 	-- Exception handler for cursor loops
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+    /*
     -- General exception handler
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -826,6 +830,7 @@ proc_label: BEGIN
         SET p_product_batch_id = NULL;
     END;
     START TRANSACTION;
+    */
 	
     -- Validate recipe exists
     IF NOT EXISTS (
@@ -955,9 +960,12 @@ proc_label: BEGIN
 				INSERT INTO ProductBatchIngredientBatch (ProductLotID, IngredientLotID, QuantityUsed)
 				VALUES (p_product_batch_id, v_ibatch_id, v_qty_to_use);
 				-- Decrease quantity left in used ingredient batch
-				UPDATE IngredientBatch
-					SET Quantity = Quantity - v_qty_to_use
-					WHERE LotID = v_ibatch_id;
+				SELECT PackSize INTO v_pack_size FROM IngredientBatch ib
+                JOIN Formulation f ON f.FormulationID = ib.FormulationID;
+                    
+                UPDATE IngredientBatch
+                    SET Quantity = Quantity - (v_required_qty / v_pack_size)
+                    WHERE LotID = v_ibatch_id;
 				LEAVE ibatch_loop;
             END LOOP ibatch_loop;
 		END LOOP rbom_loop;
@@ -993,11 +1001,16 @@ proc_label: BEGIN
 					INSERT INTO ProductBatchIngredientBatch (ProductLotID, IngredientLotID, QuantityUsed)
 					VALUES (p_product_batch_id, v_ibatch_id, v_required_qty);
 					-- Decrease quantity left in used ingredient batch
+
+                    SELECT PackSize INTO v_pack_size FROM IngredientBatch ib
+                    JOIN Formulation f ON f.FormulationID = ib.FormulationID;
+                    
 					UPDATE IngredientBatch
-						SET Quantity = Quantity - v_required_qty
+						SET Quantity = Quantity - (v_required_qty / v_pack_size)
 						WHERE LotID = v_ibatch_id;
 					CLOSE ibatch_cursor;
 					LEAVE ibatch_loop;
+                END IF;
 			END LOOP ibatch_loop;
 		END LOOP rbom_loop;
 		CLOSE rbom_cursor;
